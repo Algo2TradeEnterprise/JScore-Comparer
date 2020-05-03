@@ -80,8 +80,10 @@ Public Class CompareHelper
                 output(1, clmCtr) = "Added"
                 clmCtr += 1
                 output(1, clmCtr) = "Removed"
-                clmCtr += 1
-                output(1, clmCtr) = "Updated"
+                If _fileSchema.ElementAt(fieldCount).Key = "Field1" Then
+                    clmCtr += 1
+                    output(1, clmCtr) = "Updated"
+                End If
             Next
             'Writing Data
             Dim rowCtr As Integer = 1
@@ -99,8 +101,16 @@ Public Class CompareHelper
                             output(rowCtr, columnCtr) = runningField.Value.Changes.Added
                             columnCtr += 1
                             output(rowCtr, columnCtr) = runningField.Value.Changes.Removed
+                            If runningField.Key.ToUpper = "FIELD1" Then
+                                columnCtr += 1
+                                output(rowCtr, columnCtr) = runningField.Value.Changes.Updated
+                            End If
+                        Else
                             columnCtr += 1
-                            output(rowCtr, columnCtr) = runningField.Value.Changes.Updated
+                            columnCtr += 1
+                            If runningField.Key.ToUpper = "FIELD1" Then
+                                columnCtr += 1
+                            End If
                         End If
                     Next
                 End If
@@ -128,14 +138,14 @@ Public Class CompareHelper
 
     Private Sub CompareAllScores(ByRef scoreData As ScoreDetails)
         If scoreData IsNot Nothing AndAlso scoreData.Fields IsNot Nothing AndAlso scoreData.Fields.Count > 0 Then
-            For Each runninfField In scoreData.Fields
+            For Each runningField In scoreData.Fields
                 _cts.Token.ThrowIfCancellationRequested()
-                CompareFieldScore(runninfField.Value)
+                CompareFieldScore(runningField.Value, runningField.Key)
             Next
         End If
     End Sub
 
-    Private Sub CompareFieldScore(ByRef fieldData As Field)
+    Private Sub CompareFieldScore(ByRef fieldData As Field, ByVal fieldName As String)
         If fieldData IsNot Nothing AndAlso (fieldData.File1Value IsNot Nothing OrElse fieldData.File2Value IsNot Nothing) Then
             Dim file1Data() As String = Nothing
             If fieldData.File1Value IsNot Nothing Then
@@ -156,6 +166,13 @@ Public Class CompareHelper
                     If Not IsSkillNameExists(file1Data(i), file2Data, indexNumber) Then
                         If removedSkills Is Nothing Then removedSkills = New List(Of String)
                         removedSkills.Add(file1Data(i))
+                    Else
+                        If fieldName.ToUpper <> "FIELD1" Then
+                            If Not file2Data.Contains(file1Data(i)) Then
+                                If removedSkills Is Nothing Then removedSkills = New List(Of String)
+                                removedSkills.Add(file1Data(i))
+                            End If
+                        End If
                     End If
                 Next
             ElseIf file1Data IsNot Nothing AndAlso file1Data.Count > 0 AndAlso (file2Data Is Nothing OrElse file2Data.Count = 0) Then
@@ -175,6 +192,13 @@ Public Class CompareHelper
                     If Not IsSkillNameExists(file2Data(i), file1Data, indexNumber) Then
                         If addedSkills Is Nothing Then addedSkills = New List(Of String)
                         addedSkills.Add(file2Data(i))
+                    Else
+                        If fieldName.ToUpper <> "FIELD1" Then
+                            If Not file1Data.Contains(file2Data(i)) Then
+                                If addedSkills Is Nothing Then addedSkills = New List(Of String)
+                                addedSkills.Add(file2Data(i))
+                            End If
+                        End If
                     End If
                 Next
             ElseIf file2Data IsNot Nothing AndAlso file2Data.Count > 0 AndAlso (file1Data Is Nothing OrElse file1Data.Count = 0) Then
@@ -188,19 +212,21 @@ Public Class CompareHelper
             _cts.Token.ThrowIfCancellationRequested()
             Dim updatedSkills As List(Of String) = Nothing
             If file1Data IsNot Nothing AndAlso file1Data.Count > 0 AndAlso file2Data IsNot Nothing AndAlso file2Data.Count > 0 Then
-                For i As Integer = 0 To file2Data.Count - 1
-                    _cts.Token.ThrowIfCancellationRequested()
-                    Dim indexNumber As Integer = 0
-                    If IsSkillNameExists(file2Data(i), file1Data, indexNumber) Then
-                        If Not file2Data(i).Trim.ToUpper = file1Data(indexNumber).Trim.ToUpper AndAlso Not file1Data.Contains(file2Data(i)) Then
-                            Dim scoreUpdate As String = GetScoreUpdate(file1Data(indexNumber), file2Data(i))
-                            If scoreUpdate IsNot Nothing Then
-                                If updatedSkills Is Nothing Then updatedSkills = New List(Of String)
-                                updatedSkills.Add(scoreUpdate)
+                If fieldName.ToUpper = "FIELD1" Then
+                    For i As Integer = 0 To file2Data.Count - 1
+                        _cts.Token.ThrowIfCancellationRequested()
+                        Dim indexNumber As Integer = 0
+                        If IsSkillNameExists(file2Data(i), file1Data, indexNumber) Then
+                            If Not file2Data(i).Trim.ToUpper = file1Data(indexNumber).Trim.ToUpper AndAlso Not file1Data.Contains(file2Data(i)) Then
+                                Dim scoreUpdate As String = GetScoreUpdate(file1Data(indexNumber), file2Data(i))
+                                If scoreUpdate IsNot Nothing Then
+                                    If updatedSkills Is Nothing Then updatedSkills = New List(Of String)
+                                    updatedSkills.Add(scoreUpdate)
+                                End If
                             End If
                         End If
-                    End If
-                Next
+                    Next
+                End If
             End If
 
             fieldData.Changes = New Difference With {
@@ -232,17 +258,17 @@ Public Class CompareHelper
         If score1 IsNot Nothing AndAlso score2 IsNot Nothing Then
             If IsNumeric(score1) AndAlso IsNumeric(score2) Then
                 If Val(score2) > Val(score1) Then
-                    ret = String.Format("+{0}", skillScore2)
+                    ret = String.Format("(+){0}", skillScore2)
                 ElseIf Val(score2) < Val(score1) Then
-                    ret = String.Format("-{0}", skillScore2)
+                    ret = String.Format("(-){0}", skillScore2)
                 End If
             Else
                 Dim subScore1 As String = score1(1)
                 Dim subScore2 As String = score2(1)
                 If Val(subScore2) > Val(subScore1) Then
-                    ret = String.Format("+{0}", skillScore2)
+                    ret = String.Format("(+){0}", skillScore2)
                 ElseIf Val(subScore2) < Val(subScore1) Then
-                    ret = String.Format("-{0}", skillScore2)
+                    ret = String.Format("(-){0}", skillScore2)
                 End If
             End If
         End If
