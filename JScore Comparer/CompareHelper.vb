@@ -254,7 +254,7 @@ Public Class CompareHelper
             Dim skill As String = Nothing
             For Each runningSkill In skillList
                 _cts.Token.ThrowIfCancellationRequested()
-                skill = String.Format(",{0}", runningSkill)
+                skill = String.Format("{0},{1}", skill, runningSkill)
             Next
             ret = skill.Substring(1)
         End If
