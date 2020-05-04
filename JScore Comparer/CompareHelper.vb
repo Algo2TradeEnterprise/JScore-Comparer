@@ -147,14 +147,25 @@ Public Class CompareHelper
 
     Private Sub CompareFieldScore(ByRef fieldData As Field, ByVal fieldName As String)
         If fieldData IsNot Nothing AndAlso (fieldData.File1Value IsNot Nothing OrElse fieldData.File2Value IsNot Nothing) Then
+            Dim seperator As String() = {"),"}
             Dim file1Data() As String = Nothing
             If fieldData.File1Value IsNot Nothing Then
-                file1Data = fieldData.File1Value.Split(",")
+                file1Data = fieldData.File1Value.Split(seperator, StringSplitOptions.RemoveEmptyEntries)
             End If
             _cts.Token.ThrowIfCancellationRequested()
             Dim file2Data() As String = Nothing
             If fieldData.File2Value IsNot Nothing Then
-                file2Data = fieldData.File2Value.Split(",")
+                file2Data = fieldData.File2Value.Split(seperator, StringSplitOptions.RemoveEmptyEntries)
+            End If
+            If file1Data IsNot Nothing AndAlso file1Data.Count > 0 Then
+                For data As Integer = 0 To file1Data.Count - 2
+                    file1Data(data) = String.Format("{0})", file1Data(data))
+                Next
+            End If
+            If file2Data IsNot Nothing AndAlso file2Data.Count > 0 Then
+                For data As Integer = 0 To file2Data.Count - 2
+                    file2Data(data) = String.Format("{0})", file2Data(data))
+                Next
             End If
             'Removed Skills
             _cts.Token.ThrowIfCancellationRequested()
